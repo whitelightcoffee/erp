@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>光之種子 · 物控排程</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1EA; --ink:#1F241E; --ink-soft:#5C6359; --line:#DDE1D6;
+  --card:#FFFFFF; --card-2:#F7F8F3;
+  --green:#2E6A4C; --green-soft:#E3EFE7;
+  --teal:#2C6C78; --teal-soft:#DFEEF0;
+  --amber:#B0701A; --amber-soft:#F5E9D4;
+  --roast:#6E4A2E; --roast-soft:#EDE3DA;
+  --pending:#B0701A; --pending-soft:#F5E9D4;
+  --sched:#2C6C78;  --sched-soft:#DFEEF0;
+  --stock:#2E6A4C;  --stock-soft:#E3EFE7;
+  --danger:#B23B3B;
+  --num:"Space Grotesk","Noto Sans TC",sans-serif;
+  --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --shadow:0 1px 2px rgba(31,36,30,.06),0 4px 16px rgba(31,36,30,.06);
+  --shadow-lg:0 8px 40px rgba(31,36,30,.18);
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:var(--sans);background:var(--paper);color:var(--ink);font-size:16px;line-height:1.4;overscroll-behavior-y:none;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
+.num{font-family:var(--num);font-feature-settings:"tnum" 1;letter-spacing:-.01em}
+#app{display:flex;flex-direction:column;height:100dvh;max-width:520px;margin:0 auto;position:relative;background:var(--paper)}
+.topbar{position:sticky;top:0;z-index:20;background:var(--paper);padding:14px 18px 10px;border-bottom:1px solid var(--line);display:flex;align-items:flex-end;justify-content:space-between}
+.topbar .brand{display:flex;flex-direction:column;line-height:1.1}
+.topbar .brand b{font-size:19px;font-weight:700;letter-spacing:.02em}
+.topbar .brand span{font-size:12px;color:var(--ink-soft);margin-top:3px;letter-spacing:.06em}
+.topbar .st{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-soft);margin-right:auto;margin-left:12px;padding-bottom:2px}
+.topbar .st .dot{width:7px;height:7px;border-radius:50%;background:#B9BEB2}
+.topbar .st.on .dot{background:var(--green)}
+.topbar .st.off .dot{background:var(--amber)}
+.topbar .gear{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;color:var(--ink-soft)}
+.topbar .gear:active{background:var(--card-2)}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px calc(96px + var(--safe-b))}
+.tabbar{position:absolute;bottom:0;left:0;right:0;z-index:20;background:rgba(238,241,234,.94);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;padding:8px 8px calc(8px + var(--safe-b))}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border-radius:12px;color:var(--ink-soft)}
+.tab .ic{width:24px;height:24px}
+.tab .lb{font-size:11px;letter-spacing:.05em}
+.tab.on{color:var(--green)}
+.tab.on .lb{font-weight:600}
+.seg{display:flex;gap:6px;background:var(--card-2);padding:4px;border-radius:12px;margin-bottom:14px}
+.seg button{flex:1;padding:8px 4px;border-radius:9px;font-size:13px;color:var(--ink-soft);font-weight:500}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow);font-weight:600}
+.order{background:var(--card);border-radius:16px;padding:14px 15px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;gap:12px;align-items:flex-start}
+.order:active{transform:scale(.994)}
+.order .body{flex:1;min-width:0}
+.order .line1{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.order .cust{font-size:12.5px;color:var(--ink-soft);letter-spacing:.03em}
+.order .name{font-size:17px;font-weight:600}
+.order .qty{font-size:17px;font-weight:600}
+.order .qty small{font-size:12px;color:var(--ink-soft);font-weight:400;margin-left:1px}
+.order .dates{display:flex;gap:14px;margin-top:8px;font-size:12.5px;color:var(--ink-soft);flex-wrap:wrap;align-items:center}
+.order .dates b{color:var(--ink);font-weight:600}
+.order .dates .none{color:#B9BEB2}
+.tag{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:6px;margin-left:5px;vertical-align:middle;letter-spacing:.02em}
+.tag.loc{background:var(--green-soft);color:var(--green)}
+.tag.rt{background:var(--teal-soft);color:var(--teal)}
+.order .note{margin-top:7px;font-size:12.5px;color:var(--amber);background:var(--amber-soft);padding:4px 9px;border-radius:7px;display:inline-block}
+.chip{font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:20px;white-space:nowrap;letter-spacing:.03em}
+.chip.st-有庫存{background:var(--stock-soft);color:var(--stock)}
+.chip.st-已排程{background:var(--sched-soft);color:var(--sched)}
+.chip.st-待處理{background:var(--pending-soft);color:var(--pending)}
+.day{margin-bottom:22px}
+.dayhead{display:flex;align-items:center;gap:12px;margin-bottom:10px;padding:0 2px}
+.badge{min-width:56px;height:56px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;flex-shrink:0;line-height:1}
+.badge .d{font-family:var(--num);font-size:22px;font-weight:700}
+.badge .w{font-size:11px;margin-top:3px;opacity:.9}
+.prod .badge{background:var(--green)} .ship .badge{background:var(--teal)}
+.dayhead .meta{display:flex;flex-direction:column}
+.dayhead .meta b{font-size:15px;font-weight:600}
+.dayhead .meta span{font-size:12px;color:var(--ink-soft);margin-top:2px}
+.band{display:flex;align-items:center;gap:8px;margin:14px 0 9px;padding:0 2px}
+.band .pill{font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:8px;letter-spacing:.03em}
+.band .rule{flex:1;height:1px;background:var(--line)}
+.prod .band .pill{background:var(--green);color:#fff}
+.ship .band .pill{background:var(--teal);color:#fff}
+.deptgroup{margin:0 0 8px 0}
+.deptlabel{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;margin:2px 0 8px}
+.dept-廚房{background:var(--amber-soft);color:var(--amber)}
+.dept-烘焙部{background:var(--roast-soft);color:var(--roast)}
+.pline,.sline{background:var(--card);border-radius:13px;box-shadow:var(--shadow);margin-bottom:8px;overflow:hidden}
+.pline .top,.sline .top{display:flex;align-items:center;gap:10px;padding:12px 14px}
+.pline .cust,.sline .cust{font-size:12px;color:var(--ink-soft);min-width:60px}
+.pline .item,.sline .item{font-size:16px;font-weight:600;flex:1}
+.pline .q,.sline .q{font-family:var(--num);font-size:17px;font-weight:600}
+.pline .q small,.sline .q small{font-size:11px;color:var(--ink-soft);font-weight:400}
+.shift{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:20px;background:var(--card-2);color:var(--ink-soft)}
+.shift.上午{background:#FBF3DF;color:#9A6B12}
+.shift.晚上{background:#E7E4F0;color:#5B4E8A}
+.detail{padding:0 14px 12px;display:none}
+.detail.open{display:block}
+.detail .row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.detail label{font-size:12px;color:var(--ink-soft);min-width:36px}
+.detail input,.detail select{flex:1;background:var(--card-2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:14px}
+.detail .shifttoggle{display:flex;gap:6px;flex:1}
+.detail .shifttoggle button{flex:1;padding:9px;border-radius:9px;background:var(--card-2);border:1px solid var(--line);font-size:13px;font-weight:500;color:var(--ink-soft)}
+.detail .shifttoggle button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.detail .delbtn{width:100%;padding:10px;border-radius:9px;color:var(--danger);font-weight:600;font-size:13.5px;background:var(--card-2);border:1px solid var(--line)}
+.sline .sub{font-size:12px;color:var(--ink-soft);padding:0 14px 11px;margin-top:-2px;display:flex;gap:14px;flex-wrap:wrap}
+.sline .sub b{color:var(--ink);font-weight:600}
+.sline.manual .item::after{content:"料件";font-size:10px;font-weight:600;color:var(--teal);background:var(--teal-soft);padding:2px 6px;border-radius:6px;margin-left:8px;vertical-align:middle}
+.addrow{width:100%;text-align:center;padding:11px;border:1px dashed var(--line);border-radius:12px;color:var(--ink-soft);font-size:13px;font-weight:500;margin-top:2px;margin-bottom:4px}
+.addrow:active{background:var(--card-2)}
+.fab{position:absolute;right:18px;bottom:calc(88px + var(--safe-b));z-index:25;height:54px;padding:0 22px;border-radius:27px;background:var(--green);color:#fff;font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(46,106,76,.4)}
+.fab:active{transform:scale(.96)}
+.fab svg{width:20px;height:20px}
+.empty{text-align:center;color:var(--ink-soft);padding:56px 24px}
+.empty .big{font-size:15px;font-weight:600;color:var(--ink);margin-bottom:6px}
+.empty .sm{font-size:13px;line-height:1.6}
+.section-hint{font-size:12px;color:var(--ink-soft);margin:-4px 2px 12px;line-height:1.5}
+.scrim{position:fixed;inset:0;background:rgba(31,36,30,.4);z-index:40;opacity:0;pointer-events:none;transition:opacity .25s}
+.scrim.show{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;max-width:520px;margin:0 auto;background:var(--paper);border-radius:22px 22px 0 0;box-shadow:var(--shadow-lg);transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);max-height:94dvh;display:flex;flex-direction:column}
+.sheet.show{transform:translateY(0)}
+.sheet .grab{width:38px;height:4px;background:var(--line);border-radius:2px;margin:10px auto 4px}
+.sheet .shead{display:flex;align-items:center;justify-content:space-between;padding:6px 18px 12px;border-bottom:1px solid var(--line)}
+.sheet .shead b{font-size:17px;font-weight:700}
+.sheet .shead .del{color:var(--danger);font-size:14px;font-weight:500}
+.sheet .sbody{overflow-y:auto;padding:16px 18px calc(20px + var(--safe-b))}
+.field{margin-bottom:15px}
+.field>label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:7px;letter-spacing:.03em}
+.field input,.field select,.field textarea{width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px;font-size:16px}
+.field textarea{resize:none;min-height:52px}
+.field .two{display:flex;gap:10px}
+.field .two>div{flex:1}
+.statuspick{display:flex;gap:8px}
+.statuspick button{flex:1;padding:11px 4px;border-radius:11px;border:1px solid var(--line);background:var(--card);font-size:13.5px;font-weight:600;color:var(--ink-soft)}
+.statuspick button.on.s-有庫存{background:var(--stock);border-color:var(--stock);color:#fff}
+.statuspick button.on.s-已排程{background:var(--sched);border-color:var(--sched);color:#fff}
+.statuspick button.on.s-待處理{background:var(--pending);border-color:var(--pending);color:#fff}
+.save{width:100%;height:52px;border-radius:14px;background:var(--green);color:#fff;font-size:16.5px;font-weight:600;margin-top:6px}
+.save:active{transform:scale(.99)}
+.hintline{font-size:11.5px;color:var(--ink-soft);margin-top:6px}
+.mrow{background:var(--card);border-radius:13px;box-shadow:var(--shadow);padding:12px 14px;margin-bottom:9px}
+.mrow .mn{font-size:15px;font-weight:600;margin-bottom:9px}
+.mrow .mgrid{display:flex;gap:8px}
+.mrow .mgrid>div{flex:1}
+.mrow .mgrid label{font-size:11px;color:var(--ink-soft);display:block;margin-bottom:4px}
+.mrow .mgrid input,.mrow .mgrid select{width:100%;background:var(--card-2);border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:14px}
+.toast{position:fixed;bottom:calc(104px + var(--safe-b));left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 20px;border-radius:24px;font-size:14px;z-index:60;opacity:0;transition:all .25s;pointer-events:none;box-shadow:var(--shadow-lg);white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="brand"><b>光之種子</b><span>物控排程</span></div>
+    <div class="st" id="conn"><span class="dot"></span><span id="connLabel">本機</span></div>
+    <button class="gear" onclick="openItems()" aria-label="品項設定">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+  <div class="scroll" id="scroll"></div>
+  <button class="fab" id="fab" onclick="openOrder()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>新增訂單
+  </button>
+  <div class="tabbar">
+    <button class="tab on" data-tab="orders" onclick="go('orders')">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+      <span class="lb">訂單</span>
+    </button>
+    <button class="tab" data-tab="prod" onclick="go('prod')">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 21h18M5 21V8l4-3 4 3M13 21V11l4-3 4 3v10"/><path d="M8 12h1M8 16h1"/></svg>
+      <span class="lb">生產</span>
+    </button>
+    <button class="tab" data-tab="ship" onclick="go('ship')">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>
+      <span class="lb">送貨</span>
+    </button>
+  </div>
+</div>
+<div class="scrim" id="scrim" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet"><div class="grab"></div><div id="sheetContent"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   ★ 設定：貼上你的 GAS 網頁應用程式網址。
+     留空 = 本機模式（資料存瀏覽器，單機測試用）。
+     填了 = 連後端，讀寫你的 Google Sheet。
+   ========================================================================= */
+const API_URL = 'https://script.google.com/macros/s/AKfycbyBX7DXgF5N3xqDP8wYVI0fsV5SuRwTzo0VaKol5NzGc9IFbcGUk0RRkSdSbf0ht6PoqA/exec';
+
+/* ---------- 後端 / 本機 資料層 ---------- */
+const HAS_STORE = (typeof window!=='undefined' && window.storage && window.storage.get);
+const mem = {};
+const DB = {
+  async load(key){ if(HAS_STORE){ try{ const r=await window.storage.get(key); return r?JSON.parse(r.value):null; }catch(e){ return null; } } return mem[key]??null; },
+  async save(key,val){ if(HAS_STORE){ try{ await window.storage.set(key,JSON.stringify(val)); return; }catch(e){} } mem[key]=val; }
+};
+async function apiGet(){ const res=await fetch(API_URL,{method:'GET'}); return res.json(); }
+async function apiPost(action,payload){
+  const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(Object.assign({action},payload))});
+  return res.json();
+}
+/* 提交一個動作：連後端就送到 GAS，否則存本機。UI 已先樂觀更新。 */
+async function commit(action,payload){
+  if(API_URL){ try{ const r=await apiPost(action,payload); if(r&&r.ok===false) toast('儲存失敗，稍後再試'); }catch(e){ toast('連線失敗，稍後再試'); } }
+  else { await DB.save('mkstate',S); }
+}
+function uid(p){ return (p||'o')+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function ensure(st){ st.orders=st.orders||[]; st.items=st.items||{}; st.pdet=st.pdet||{}; st.sdet=st.sdet||{}; st.mship=st.mship||{}; return st; }
+
+/* 預設清單（可自由輸入新值） */
+const LOCS=['新竹','林口'];
+const ROUTES=['新竹-林口','林口-新竹'];
+
+/* ---------- 狀態 ---------- */
+let S = { orders:[], items:{}, pdet:{}, sdet:{}, mship:{} };
+let TAB='orders';
+
+/* ---------- 種子資料（來自你的表）---------- */
+function seed(){
+  S.orders = [
+    o('有庫存','林口白光','牛肉麵',20,'','2026-08-24','冷凍車','需確認庫存數量','','新竹-林口'),
+    o('有庫存','林口白光','雞湯',20,'','2026-08-24','冷凍車','需確認庫存數量','','新竹-林口'),
+    o('已排程','林口白光','粥',16,'2026-08-23','2026-08-24','冷凍車','','新竹','新竹-林口'),
+    o('已排程','林口白光','水餃',60,'2026-08-25','','','林口包','林口',''),
+    o('已排程','林口白光','黑糖燕麥片',5,'2026-08-23','2026-08-24','冷凍車','','新竹','新竹-林口'),
+    o('已排程','林口白光','粥用油蔥',4,'2026-08-23','2026-08-24','冷凍車','','新竹','新竹-林口'),
+    o('已排程','新竹白光','水餃',30,'2026-08-22','','','','新竹',''),
+    o('已排程','Walkin','中焙',40,'2026-08-23','2026-08-24','冷凍車','','新竹','新竹-林口'),
+    o('已排程','檔案館','中焙',40,'2026-08-23','2026-08-24','冷凍車','','新竹','新竹-林口'),
+    o('待處理','林口白光','咖哩醬',null,'','2026-08-31','來回冷凍車','數量待確認','','新竹-林口'),
+    o('待處理','林口白光','奶油乳酪',null,'','2026-08-31','來回冷凍車','','','新竹-林口'),
+    o('待處理','林口白光','果昔',30,'','2026-08-31','來回冷凍車','','','新竹-林口'),
+  ];
+  S.items = {
+    '牛肉麵':{dept:'廚房',loc:'3F冷凍',display:'牛肉麵'},
+    '雞湯':{dept:'廚房',loc:'3F冷凍',display:'雞湯'},
+    '粥':{dept:'廚房',loc:'3F冷凍',display:'粥'},
+    '水餃':{dept:'廚房',loc:'3F冷凍',display:'水餃'},
+    '黑糖燕麥片':{dept:'廚房',loc:'3F常溫',display:'燕麥片'},
+    '粥用油蔥':{dept:'廚房',loc:'3F冷凍',display:'油蔥'},
+    '中焙':{dept:'烘焙部',loc:'烘焙室',display:'中焙'},
+    '咖哩醬':{dept:'廚房',loc:'',display:'咖哩醬'},
+    '奶油乳酪':{dept:'廚房',loc:'3F冷藏',display:'奶油乳酪'},
+    '果昔':{dept:'廚房',loc:'',display:'果昔'},
+  };
+  S.pdet = {
+    '2026-08-22|新竹白光|水餃':{shift:'上午',note:'缺料：8/21買絞肉/絲瓜/薑、8/22買水餃皮'},
+    '2026-08-23|林口白光|粥':{shift:'上午',note:'缺料：雞腿肉3'},
+    '2026-08-23|林口白光|油蔥':{shift:'上午',note:'缺料：蔥'},
+  };
+  S.sdet = {};
+  S.mship = { '2026-08-24':[
+    {id:'m1',customer:'物料-水餃用',item:'攪拌機',qty:'1',loc:'3F',logi:'冷凍車',route:'新竹-林口'},
+    {id:'m2',customer:'',item:'蝦仁',qty:'2包+40隻',loc:'3F冷凍',logi:'冷凍車',route:'新竹-林口'},
+  ]};
+}
+function o(status,customer,name,qty,prod,ship,logi,note,ploc,route){
+  return {id:uid('o'),status,customer,name,qty,prod,ship,logi,note,ploc:ploc||'',route:route||''};
+}
+
+/* ---------- 啟動：連後端優先，失敗或未設定則本機 ---------- */
+async function boot(){
+  if(API_URL){
+    setConn('loading');
+    try{
+      const r=await apiGet();
+      if(r&&r.ok&&r.state&&r.state.orders&&r.state.orders.length){
+        S=ensure(r.state); setConn('on'); render(); return;
+      }
+      // 後端是空的 → 用種子初始化並寫上去
+      seed(); render();
+      try{ await apiPost('bulkImport',{state:S}); setConn('on'); }catch(e){ setConn('off'); }
+      return;
+    }catch(e){
+      setConn('off'); toast('連後端失敗，暫用本機資料');
+    }
+  }
+  const saved=await DB.load('mkstate');
+  if(saved&&saved.orders){ S=ensure(saved); }
+  else { seed(); await DB.save('mkstate',S); }
+  render();
+}
+function setConn(state){
+  const el=$('conn'), lb=$('connLabel');
+  el.className='st '+(state==='on'?'on':state==='off'?'off':'');
+  lb.textContent = state==='on'?'已連線':state==='off'?'離線':state==='loading'?'連線中…':'本機';
+}
+
+/* ---------- 工具 ---------- */
+const WK=['日','一','二','三','四','五','六'];
+const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(v||'');
+function d2(s){ const [y,m,dd]=s.split('-').map(Number); return new Date(y,m-1,dd); }
+function md(s){ const d=d2(s); return (d.getMonth()+1)+'/'+d.getDate(); }
+function wk(s){ return WK[d2(s).getDay()]; }
+function qtyShow(q){ return (q===null||q===undefined||q==='')?'？':q; }
+function disp(name){ return (S.items[name]&&S.items[name].display)||name; }
+function dept(name){ return (S.items[name]&&S.items[name].dept)|| (/焙|豆|烘/.test(name)?'烘焙部':'廚房'); }
+function defShift(dp){ return dp==='烘焙部'?'晚上':'上午'; }
+function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function routeArrow(r){ if(!r) return '未指定路線'; return r.indexOf('-')>-1 ? r.split('-').join(' → ') : r; }
+function orderedKeys(map, prefer, emptyKey){
+  return Object.keys(map).sort((a,b)=>{
+    if(a===emptyKey) return 1; if(b===emptyKey) return -1;
+    const ia=prefer.indexOf(a), ib=prefer.indexOf(b);
+    if(ia>-1||ib>-1){ return (ia<0?99:ia)-(ib<0?99:ib); }
+    return a.localeCompare(b);
+  });
+}
+
+/* =========================================================================
+   生成邏輯：訂單 → 生產排程 / 送貨
+   ========================================================================= */
+function buildProduction(){
+  const byDate={};
+  S.orders.forEach(od=>{
+    if(!isDate(od.prod)) return;
+    const item=disp(od.name), dp=dept(od.name), loc=od.ploc||'新竹';
+    const key=od.prod+'|'+od.customer+'|'+item;
+    const dt=S.pdet[key]||{};
+    (byDate[od.prod]=byDate[od.prod]||[]).push({key,customer:od.customer,item,qty:od.qty,dept:dp,loc,shift:dt.shift||defShift(dp),note:dt.note||''});
+  });
+  return Object.keys(byDate).sort().map(date=>{
+    const lines=byDate[date];
+    const byLoc={};
+    lines.forEach(l=>(byLoc[l.loc]=byLoc[l.loc]||[]).push(l));
+    const locKeys=orderedKeys(byLoc, LOCS, '');
+    const locs=locKeys.map(loc=>{
+      const groups={};
+      byLoc[loc].forEach(l=>(groups[l.dept]=groups[l.dept]||[]).push(l));
+      const gs=orderedKeys(groups,['廚房','烘焙部'],'').map(dp=>({dept:dp,lines:groups[dp]}));
+      return {loc,groups:gs};
+    });
+    return {date,locs,singleLoc:locKeys.length===1,count:lines.length};
+  });
+}
+function buildShipping(){
+  const byDate={};
+  S.orders.forEach(od=>{
+    if(!isDate(od.ship)) return;
+    const item=disp(od.name), route=od.route||'';
+    const key=od.ship+'|'+od.customer+'|'+item;
+    const dt=S.sdet[key]||{};
+    (byDate[od.ship]=byDate[od.ship]||[]).push({key,customer:od.customer,item,qty:od.qty,route,
+      loc:dt.loc!==undefined?dt.loc:((S.items[od.name]&&S.items[od.name].loc)||''),
+      logi:dt.logi!==undefined?dt.logi:(od.logi||''),manual:false});
+  });
+  Object.keys(S.mship).forEach(date=>{
+    S.mship[date].forEach(m=>{
+      if(!m.id) m.id=uid('m');
+      (byDate[date]=byDate[date]||[]).push({key:'M|'+m.id,customer:m.customer,item:m.item,qty:m.qty,
+        loc:m.loc,logi:m.logi,route:m.route||'',manual:true,matId:m.id,mdate:date});
+    });
+  });
+  return Object.keys(byDate).sort().map(date=>{
+    const byRoute={};
+    byDate[date].forEach(l=>(byRoute[l.route]=byRoute[l.route]||[]).push(l));
+    const routes=orderedKeys(byRoute,ROUTES,'').map(r=>({route:r,lines:byRoute[r]}));
+    return {date,routes,count:byDate[date].length};
+  });
+}
+
+/* =========================================================================
+   畫面
+   ========================================================================= */
+const $=id=>document.getElementById(id);
+function render(){ ({orders:renderOrders,prod:renderProd,ship:renderShip}[TAB])(); }
+function go(tab){
+  TAB=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
+  $('fab').style.display = tab==='orders'?'flex':'none';
+  $('scroll').scrollTop=0;
+  render();
+}
+
+/* ----- 訂單 ----- */
+let FILTER='全部';
+function renderOrders(){
+  const list = FILTER==='全部'?S.orders:S.orders.filter(o=>o.status===FILTER);
+  const seg=`<div class="seg">${['全部','待處理','已排程','有庫存'].map(f=>`<button class="${f===FILTER?'on':''}" onclick="setFilter('${f}')">${f}</button>`).join('')}</div>`;
+  let html=seg;
+  if(!list.length){ html+=`<div class="empty"><div class="big">還沒有訂單</div><div class="sm">按右下角「新增訂單」開始。<br>填好生產日與送貨日，生產和送貨頁會自動排。</div></div>`; }
+  else { html+=list.map(cardOrder).join(''); }
+  $('scroll').innerHTML=html;
+}
+function setFilter(f){ FILTER=f; renderOrders(); }
+function cardOrder(o){
+  const locTag = (isDate(o.prod)&&o.ploc&&o.ploc!=='新竹') ? `<span class="tag loc">${esc(o.ploc)}</span>` : '';
+  const rtTag  = (isDate(o.ship)&&o.route) ? `<span class="tag rt">${esc(routeArrow(o.route))}</span>` : '';
+  const pr=isDate(o.prod)?`<b>${md(o.prod)}</b>${locTag}`:`<span class="none">—</span>`;
+  const sh=isDate(o.ship)?`<b>${md(o.ship)}</b>${rtTag}`:`<span class="none">—</span>`;
+  return `<div class="order" onclick="openOrder('${o.id}')"><div class="body">
+    <div class="line1"><span class="cust">${esc(o.customer)}</span><span class="name">${esc(o.name)}</span><span class="qty num">${qtyShow(o.qty)}<small>份</small></span></div>
+    <div class="dates"><span>生產 ${pr}</span><span>送貨 ${sh}</span></div>
+    ${o.note?`<div class="note">${esc(o.note)}</div>`:''}
+    </div><span class="chip st-${o.status}">${o.status}</span></div>`;
+}
+
+/* ----- 生產 ----- */
+function renderProd(){
+  const days=buildProduction();
+  if(!days.length){ $('scroll').innerHTML=emptyGen('生產'); return; }
+  let html=`<div class="section-hint">依訂單的「生產日」自動排，並按生產地點分。點一列可填時段與缺料。</div><div class="prod">`;
+  html+=days.map(day=>{
+    const metaLoc = day.singleLoc ? ` · ${esc(day.locs[0].loc)}` : '';
+    let inner = day.locs.map(lc=>{
+      const band = day.singleLoc ? '' : `<div class="band"><span class="pill">${esc(lc.loc)}</span><span class="rule"></span></div>`;
+      return band + lc.groups.map(g=>`<div class="deptgroup"><span class="deptlabel dept-${g.dept}">${g.dept}</span>${g.lines.map(pline).join('')}</div>`).join('');
+    }).join('');
+    return `<div class="day"><div class="dayhead"><div class="badge"><span class="d num">${md(day.date)}</span><span class="w">星期${wk(day.date)}</span></div><div class="meta"><b>生產排程</b><span>${day.count} 項${metaLoc}</span></div></div>${inner}</div>`;
+  }).join('');
+  html+=`</div>`;
+  $('scroll').innerHTML=html;
+}
+function pline(l){
+  return `<div class="pline"><div class="top" onclick="toggle(this)">
+    <span class="cust">${esc(l.customer)}</span><span class="item">${esc(l.item)}</span>
+    <span class="shift ${l.shift}">${l.shift}</span><span class="q num">${qtyShow(l.qty)}<small>份</small></span></div>
+    <div class="detail">
+      <div class="row"><label>時段</label><div class="shifttoggle">
+        <button class="${l.shift==='上午'?'on':''}" onclick="setShift('${l.key}','上午',this)">上午</button>
+        <button class="${l.shift==='晚上'?'on':''}" onclick="setShift('${l.key}','晚上',this)">晚上</button></div></div>
+      <div class="row"><label>缺料</label><input type="text" value="${esc(l.note)}" placeholder="例：8/22 買水餃皮" onchange="setNote('${l.key}',this.value)"></div>
+    </div></div>`;
+}
+function toggle(el){ el.parentElement.querySelector('.detail').classList.toggle('open'); }
+function setShift(key,val,btn){
+  S.pdet[key]=S.pdet[key]||{}; S.pdet[key].shift=val;
+  btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
+  const chip=btn.closest('.pline').querySelector('.top .shift'); chip.textContent=val; chip.className='shift '+val;
+  commit('setDetail',{kind:'pdet',key,value:S.pdet[key]});
+}
+function setNote(key,val){ S.pdet[key]=S.pdet[key]||{}; S.pdet[key].note=val; commit('setDetail',{kind:'pdet',key,value:S.pdet[key]}); toast('已更新'); }
+
+/* ----- 送貨 ----- */
+function renderShip(){
+  const days=buildShipping();
+  if(!days.length){ $('scroll').innerHTML=emptyGen('送貨'); return; }
+  let html=`<div class="section-hint">依訂單的「送貨日」自動排，並按路線分區。庫位、物流可改，也能加料件列。</div><div class="ship">`;
+  html+=days.map(day=>{
+    const routes = day.routes.map(rt=>`
+      <div class="band"><span class="pill">${esc(routeArrow(rt.route))}</span><span class="rule"></span></div>
+      ${rt.lines.map(sline).join('')}
+      <button class="addrow" onclick="addMaterial('${day.date}','${esc(rt.route)}')">＋ 加料件到「${esc(routeArrow(rt.route))}」</button>`).join('');
+    return `<div class="day"><div class="dayhead"><div class="badge"><span class="d num">${md(day.date)}</span><span class="w">星期${wk(day.date)}</span></div><div class="meta"><b>出貨清單</b><span>${day.count} 項</span></div></div>${routes}
+      <button class="addrow" onclick="addMaterial('${day.date}','林口-新竹')" style="margin-top:6px">＋ 開另一條路線（林口 → 新竹）</button></div>`;
+  }).join('');
+  html+=`</div>`;
+  $('scroll').innerHTML=html;
+}
+function sline(l){
+  return `<div class="sline ${l.manual?'manual':''}"><div class="top" onclick="toggle(this)">
+    <span class="item">${esc(l.item)}</span><span class="q num">${qtyShow(l.qty)}${(typeof l.qty==='number')?'<small>份</small>':''}</span></div>
+    <div class="sub">${l.customer?`<span>客戶 <b>${esc(l.customer)}</b></span>`:''}<span>庫位 <b>${esc(l.loc)||'—'}</b></span><span>物流 <b>${esc(l.logi)||'—'}</b></span></div>
+    <div class="detail">
+      <div class="row"><label>庫位</label><input type="text" value="${esc(l.loc)}" onchange="${l.manual?`setMat('${l.mdate}','${l.matId}','loc',this.value)`:`setShip('${l.key}','loc',this.value)`}"></div>
+      <div class="row"><label>物流</label><input type="text" value="${esc(l.logi)}" onchange="${l.manual?`setMat('${l.mdate}','${l.matId}','logi',this.value)`:`setShip('${l.key}','logi',this.value)`}"></div>
+      ${l.manual?`<div class="row"><input type="text" value="${esc(l.item)}" placeholder="品項" onchange="setMat('${l.mdate}','${l.matId}','item',this.value)"><input type="text" value="${esc(l.qty)}" placeholder="數量" onchange="setMat('${l.mdate}','${l.matId}','qty',this.value)"></div>
+      <div class="row"><button class="delbtn" onclick="delMaterial('${l.mdate}','${l.matId}')">刪除這列料件</button></div>`:''}
+    </div></div>`;
+}
+function setShip(key,f,val){ S.sdet[key]=S.sdet[key]||{}; S.sdet[key][f]=val; commit('setDetail',{kind:'sdet',key,value:S.sdet[key]}); toast('已更新'); }
+function setMat(date,id,f,val){
+  const arr=S.mship[date]||[]; const m=arr.find(x=>x.id===id); if(!m) return;
+  m[f]=val; commit('addMaterial',{date,material:m}); toast('已更新');
+  if(f==='item'||f==='qty') renderShip();
+}
+function addMaterial(date,route){
+  const m={id:uid('m'),customer:'',item:'新品項',qty:'1',loc:'',logi:'冷凍車',route:route||'新竹-林口'};
+  S.mship[date]=S.mship[date]||[]; S.mship[date].push(m);
+  renderShip(); commit('addMaterial',{date,material:m}); toast('已加一列');
+}
+function delMaterial(date,id){
+  S.mship[date]=(S.mship[date]||[]).filter(m=>m.id!==id); if(!S.mship[date].length) delete S.mship[date];
+  renderShip(); commit('delMaterial',{date,matId:id}); toast('已刪除');
+}
+function emptyGen(label){ return `<div class="empty"><div class="big">目前沒有${label}</div><div class="sm">到訂單頁新增或編輯訂單，<br>填好${label==='生產'?'生產日':'送貨日'}就會自動排在這裡。</div></div>`; }
+
+/* =========================================================================
+   新增 / 編輯 訂單
+   ========================================================================= */
+let EDIT=null;
+function openOrder(id){
+  EDIT = id ? Object.assign({},S.orders.find(o=>o.id===id)) : {id:null,status:'待處理',customer:'',name:'',qty:'',prod:'',ship:'',logi:'',note:'',ploc:'新竹',route:'新竹-林口'};
+  const custs=[...new Set(S.orders.map(o=>o.customer).filter(Boolean))];
+  const names=Object.keys(S.items);
+  const e=EDIT;
+  $('sheetContent').innerHTML=`
+    <div class="shead"><b>${id?'編輯訂單':'新增訂單'}</b>
+      ${id?`<button class="del" onclick="delOrder('${id}')">刪除</button>`:`<button class="del" style="color:var(--ink-soft)" onclick="closeSheet()">取消</button>`}</div>
+    <div class="sbody">
+      <div class="field"><label>狀態</label><div class="statuspick" id="fStatus">
+        ${['待處理','已排程','有庫存'].map(s=>`<button class="s-${s} ${e.status===s?'on':''}" onclick="pickStatus('${s}')">${s}</button>`).join('')}</div></div>
+      <div class="field"><label>客戶</label>
+        <input id="fCust" list="dl-cust" value="${esc(e.customer)}" placeholder="林口白光 / 新竹白光 / Walkin…">
+        <datalist id="dl-cust">${custs.map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>
+      <div class="field two">
+        <div><label>品名</label><input id="fName" list="dl-name" value="${esc(e.name)}" placeholder="輸入品名">
+          <datalist id="dl-name">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
+        <div style="max-width:110px"><label>數量</label><input id="fQty" type="text" inputmode="numeric" value="${e.qty??''}" placeholder="份"></div></div>
+      <div class="field two">
+        <div><label>生產日</label><input id="fProd" type="date" value="${e.prod||''}"></div>
+        <div><label>生產地點</label><input id="fPloc" list="dl-loc" value="${esc(e.ploc)}" placeholder="新竹 / 林口">
+          <datalist id="dl-loc">${LOCS.map(l=>`<option value="${l}">`).join('')}</datalist></div></div>
+      <div class="field two">
+        <div><label>送貨日</label><input id="fShip" type="date" value="${e.ship||''}"></div>
+        <div><label>送貨路線</label><input id="fRoute" list="dl-route" value="${esc(e.route)}" placeholder="新竹-林口">
+          <datalist id="dl-route">${ROUTES.map(r=>`<option value="${r}">`).join('')}</datalist></div></div>
+      <div class="hintline">生產日空白＝不進生產；送貨日空白＝不出貨。地點決定排在生產頁哪一區，路線決定送貨頁哪一區。</div>
+      <div class="field" style="margin-top:15px"><label>送貨物流</label>
+        <input id="fLogi" list="dl-logi" value="${esc(e.logi)}" placeholder="冷凍車 / 來回冷凍車 / 711…">
+        <datalist id="dl-logi"><option value="冷凍車"><option value="來回冷凍車"><option value="常溫"></datalist></div>
+      <div class="field"><label>備註</label><textarea id="fNote" placeholder="例：林口包、需確認庫存">${esc(e.note)}</textarea></div>
+      <button class="save" onclick="saveOrder()">${id?'儲存變更':'新增訂單'}</button>
+    </div>`;
+  showSheet();
+}
+function pickStatus(s){ EDIT.status=s; document.querySelectorAll('#fStatus button').forEach(b=>b.classList.toggle('on',b.classList.contains('s-'+s))); }
+function saveOrder(){
+  const g=id=>$(id).value.trim();
+  const qraw=g('fQty'); const qty=qraw===''?null:(isNaN(+qraw)?qraw:+qraw);
+  const rec={status:EDIT.status,customer:g('fCust'),name:g('fName'),qty,prod:g('fProd'),ship:g('fShip'),logi:g('fLogi'),note:g('fNote'),ploc:g('fPloc'),route:g('fRoute')};
+  if(!rec.name){ toast('請填品名'); return; }
+  let order;
+  if(EDIT.id){ order=S.orders.find(o=>o.id===EDIT.id); Object.assign(order,rec); }
+  else { order=Object.assign({id:uid('o')},rec); S.orders.unshift(order); }
+  commit('saveOrder',{order}); closeSheet(); toast(EDIT.id?'已儲存':'已新增訂單'); go('orders');
+}
+function delOrder(id){ S.orders=S.orders.filter(o=>o.id!==id); commit('deleteOrder',{id}); closeSheet(); toast('已刪除'); renderOrders(); }
+
+/* ----- 品項主檔 ----- */
+function openItems(){
+  const rows=Object.keys(S.items).map(n=>{
+    const it=S.items[n];
+    return `<div class="mrow"><div class="mn">${esc(n)}</div><div class="mgrid">
+      <div><label>部門</label><select onchange="setItem('${esc(n)}','dept',this.value)">${['廚房','烘焙部'].map(d=>`<option ${it.dept===d?'selected':''}>${d}</option>`).join('')}</select></div>
+      <div><label>庫位</label><input value="${esc(it.loc)}" onchange="setItem('${esc(n)}','loc',this.value)"></div>
+      <div><label>排程顯示名</label><input value="${esc(it.display)}" onchange="setItem('${esc(n)}','display',this.value)"></div>
+    </div></div>`;
+  }).join('');
+  $('sheetContent').innerHTML=`
+    <div class="shead"><b>品項主檔</b><button class="del" style="color:var(--ink-soft)" onclick="closeSheet()">完成</button></div>
+    <div class="sbody"><div class="hintline" style="margin-bottom:14px">設定每個品項的生產部門、送貨庫位，以及在生產/送貨頁顯示的名稱（例：黑糖燕麥片→燕麥片）。</div>
+    ${rows||'<div class="empty"><div class="sm">先新增訂單，品項會自動出現在這裡。</div></div>'}</div>`;
+  showSheet();
+}
+function setItem(n,f,v){ S.items[n]=S.items[n]||{dept:'廚房',loc:'',display:n}; S.items[n][f]=v; commit('setItem',{name:n,item:S.items[n]}); toast('已更新'); }
+
+/* ----- sheet 控制 ----- */
+function showSheet(){ $('scrim').classList.add('show'); $('sheet').classList.add('show'); }
+function closeSheet(){ $('scrim').classList.remove('show'); $('sheet').classList.remove('show'); }
+let tt;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),1400); }
+
+boot();
+</script>
+</body>
+</html>
