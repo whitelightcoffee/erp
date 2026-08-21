@@ -143,6 +143,7 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .save{width:100%;height:52px;border-radius:14px;background:var(--green);color:#fff;font-size:16.5px;font-weight:600;margin-top:6px}
 .save:active{transform:scale(.99)}
 .hintline{font-size:11.5px;color:var(--ink-soft);margin-top:6px}
+.divider{font-size:12px;font-weight:700;color:var(--ink-soft);letter-spacing:.05em;margin:4px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
 .mrow{background:var(--card);border-radius:13px;box-shadow:var(--shadow);padding:12px 14px;margin-bottom:9px}
 .mrow .mn{font-size:15px;font-weight:600;margin-bottom:9px}
 .mrow .mgrid{display:flex;gap:8px}
@@ -493,10 +494,24 @@ function emptyGen(label){ return `<div class="empty"><div class="big">目前沒�
    ========================================================================= */
 let EDIT=null;
 function openOrder(id){
-  EDIT = id ? Object.assign({},S.orders.find(o=>o.id===id)) : {id:null,status:'待處理',customer:'',name:'',qty:'',prod:'',ship:'',logi:'',note:'',ploc:'新竹',route:'新竹-林口'};
+  EDIT = id ? Object.assign({},S.orders.find(o=>o.id===id)) : {id:null,status:'待處理',customer:'',name:'',qty:'',prod:'',ship:'',logi:'',note:'',ploc:'',route:''};
   const custs=[...new Set(S.orders.map(o=>o.customer).filter(Boolean))];
   const names=Object.keys(S.items);
   const e=EDIT;
+  // 排程欄位只在「編輯」時出現；新增訂單只登記基本資料，排程之後再填
+  const scheduleBlock = id ? `
+      <div class="divider">排程（生產 / 出貨）</div>
+      <div class="field two">
+        <div><label>生產日</label><input id="fProd" type="date" value="${e.prod||''}"></div>
+        <div><label>生產地點</label><select id="fPloc">${optTags(LOCS,e.ploc,'（未設定）')}</select></div></div>
+      <div class="field two">
+        <div><label>送貨日</label><input id="fShip" type="date" value="${e.ship||''}"></div>
+        <div><label>送貨路線</label><select id="fRoute">${optTags(ROUTES,e.route,'（未設定）')}</select></div></div>
+      <div class="field"><label>送貨物流</label>
+        <input id="fLogi" list="dl-logi" value="${esc(e.logi)}" placeholder="冷凍車 / 來回冷凍車 / 711…">
+        <datalist id="dl-logi"><option value="冷凍車"><option value="來回冷凍車"><option value="常溫"></datalist></div>
+      <div class="hintline">生產日空白＝不進生產；送貨日空白＝不出貨。</div>`
+    : `<div class="hintline" style="margin-top:2px">送貨日與生產排程由排程人員之後在「訂單」點開這筆編輯，或直接在 Google Sheet 填。</div>`;
   $('sheetContent').innerHTML=`
     <div class="shead"><b>${id?'編輯訂單':'新增訂單'}</b>
       ${id?`<button class="del" onclick="delOrder('${id}')">刪除</button>`:`<button class="del" style="color:var(--ink-soft)" onclick="closeSheet()">取消</button>`}</div>
@@ -510,26 +525,22 @@ function openOrder(id){
         <div><label>品名</label><input id="fName" list="dl-name" value="${esc(e.name)}" placeholder="輸入品名">
           <datalist id="dl-name">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
         <div style="max-width:110px"><label>數量</label><input id="fQty" type="text" inputmode="numeric" value="${e.qty??''}" placeholder="份"></div></div>
-      <div class="field two">
-        <div><label>生產日</label><input id="fProd" type="date" value="${e.prod||''}"></div>
-        <div><label>生產地點</label><select id="fPloc">${optTags(LOCS,e.ploc,'（未設定）')}</select></div></div>
-      <div class="field two">
-        <div><label>送貨日</label><input id="fShip" type="date" value="${e.ship||''}"></div>
-        <div><label>送貨路線</label><select id="fRoute">${optTags(ROUTES,e.route,'（未設定）')}</select></div></div>
-      <div class="hintline">生產日空白＝不進生產；送貨日空白＝不出貨。地點決定排在生產頁哪一區，路線決定送貨頁哪一區。</div>
-      <div class="field" style="margin-top:15px"><label>送貨物流</label>
-        <input id="fLogi" list="dl-logi" value="${esc(e.logi)}" placeholder="冷凍車 / 來回冷凍車 / 711…">
-        <datalist id="dl-logi"><option value="冷凍車"><option value="來回冷凍車"><option value="常溫"></datalist></div>
       <div class="field"><label>備註</label><textarea id="fNote" placeholder="例：林口包、需確認庫存">${esc(e.note)}</textarea></div>
+      ${scheduleBlock}
       <button class="save" onclick="saveOrder()">${id?'儲存變更':'新增訂單'}</button>
     </div>`;
   showSheet();
 }
 function pickStatus(s){ EDIT.status=s; document.querySelectorAll('#fStatus button').forEach(b=>b.classList.toggle('on',b.classList.contains('s-'+s))); }
 function saveOrder(){
-  const g=id=>$(id).value.trim();
+  const g=id=>{ const el=$(id); return el?String(el.value).trim():''; };
   const qraw=g('fQty'); const qty=qraw===''?null:(isNaN(+qraw)?qraw:+qraw);
-  const rec={status:EDIT.status,customer:g('fCust'),name:g('fName'),qty,prod:g('fProd'),ship:g('fShip'),logi:g('fLogi'),note:g('fNote'),ploc:g('fPloc'),route:g('fRoute')};
+  const rec={status:EDIT.status,customer:g('fCust'),name:g('fName'),qty,note:g('fNote')};
+  if(EDIT.id){   // 編輯：一併更新排程欄位
+    rec.prod=g('fProd'); rec.ship=g('fShip'); rec.logi=g('fLogi'); rec.ploc=g('fPloc'); rec.route=g('fRoute');
+  } else {       // 新增：排程欄位留空，之後再排
+    rec.prod=''; rec.ship=''; rec.logi=''; rec.ploc=''; rec.route='';
+  }
   if(!rec.name){ toast('請填品名'); return; }
   let order;
   if(EDIT.id){ order=S.orders.find(o=>o.id===EDIT.id); Object.assign(order,rec); }
