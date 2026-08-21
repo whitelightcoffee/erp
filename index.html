@@ -127,7 +127,7 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .sheet .shead{display:flex;align-items:center;justify-content:space-between;padding:6px 18px 12px;border-bottom:1px solid var(--line)}
 .sheet .shead b{font-size:17px;font-weight:700}
 .sheet .shead .del{color:var(--danger);font-size:14px;font-weight:500}
-.sheet .sbody{overflow-y:auto;padding:16px 18px calc(20px + var(--safe-b))}
+.sheet .sbody{overflow-y:auto;padding:16px 18px calc(120px + var(--safe-b))}
 .field{margin-bottom:15px}
 .field>label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:7px;letter-spacing:.03em}
 .field input,.field select,.field textarea{width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px;font-size:16px}
@@ -304,6 +304,12 @@ function dept(name){ return (S.items[name]&&S.items[name].dept)|| (/焙|豆|烘/
 function defShift(dp){ return dp==='烘焙部'?'晚上':'上午'; }
 function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function routeArrow(r){ if(!r) return '未指定路線'; return r.indexOf('-')>-1 ? r.split('-').join(' → ') : r; }
+function optTags(list,cur,blankLabel){
+  const arr=list.slice(); if(cur && arr.indexOf(cur)<0) arr.push(cur);
+  let h = blankLabel!=null ? `<option value=""${!cur?' selected':''}>${blankLabel}</option>` : '';
+  h += arr.map(v=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(v)}</option>`).join('');
+  return h;
+}
 function orderedKeys(map, prefer, emptyKey){
   return Object.keys(map).sort((a,b)=>{
     if(a===emptyKey) return 1; if(b===emptyKey) return -1;
@@ -505,12 +511,10 @@ function openOrder(id){
         <div style="max-width:110px"><label>數量</label><input id="fQty" type="text" inputmode="numeric" value="${e.qty??''}" placeholder="份"></div></div>
       <div class="field two">
         <div><label>生產日</label><input id="fProd" type="date" value="${e.prod||''}"></div>
-        <div><label>生產地點</label><input id="fPloc" list="dl-loc" value="${esc(e.ploc)}" placeholder="新竹 / 林口">
-          <datalist id="dl-loc">${LOCS.map(l=>`<option value="${l}">`).join('')}</datalist></div></div>
+        <div><label>生產地點</label><select id="fPloc">${optTags(LOCS,e.ploc,'（未設定）')}</select></div></div>
       <div class="field two">
         <div><label>送貨日</label><input id="fShip" type="date" value="${e.ship||''}"></div>
-        <div><label>送貨路線</label><input id="fRoute" list="dl-route" value="${esc(e.route)}" placeholder="新竹-林口">
-          <datalist id="dl-route">${ROUTES.map(r=>`<option value="${r}">`).join('')}</datalist></div></div>
+        <div><label>送貨路線</label><select id="fRoute">${optTags(ROUTES,e.route,'（未設定）')}</select></div></div>
       <div class="hintline">生產日空白＝不進生產；送貨日空白＝不出貨。地點決定排在生產頁哪一區，路線決定送貨頁哪一區。</div>
       <div class="field" style="margin-top:15px"><label>送貨物流</label>
         <input id="fLogi" list="dl-logi" value="${esc(e.logi)}" placeholder="冷凍車 / 來回冷凍車 / 711…">
