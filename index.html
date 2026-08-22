@@ -71,6 +71,8 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .chip.st-有庫存{background:var(--stock-soft);color:var(--stock)}
 .chip.st-已排程{background:var(--sched-soft);color:var(--sched)}
 .chip.st-待處理{background:var(--pending-soft);color:var(--pending)}
+.chip.done{background:var(--green-soft);color:var(--green)}
+.order.done{opacity:.5}
 .day{margin-bottom:22px}
 .dayhead{display:flex;align-items:center;gap:12px;margin-bottom:10px;padding:0 2px}
 .badge{min-width:56px;height:56px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;flex-shrink:0;line-height:1}
@@ -109,6 +111,12 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .detail .delbtn{width:100%;padding:10px;border-radius:9px;color:var(--danger);font-weight:600;font-size:13.5px;background:var(--card-2);border:1px solid var(--line)}
 .sline .sub{font-size:12px;color:var(--ink-soft);padding:0 14px 11px;margin-top:-2px;display:flex;gap:14px;flex-wrap:wrap}
 .sline .sub b{color:var(--ink);font-weight:600}
+.sline .check{width:26px;height:26px;border-radius:8px;border:1.6px solid var(--line);display:grid;place-items:center;font-size:14px;line-height:1;color:transparent;flex-shrink:0;background:var(--card)}
+.sline .check.on{background:var(--green);border-color:var(--green);color:#fff}
+.sline.done{opacity:.55}
+.sline.done .item{text-decoration:line-through}
+.donetoggle{width:100%;padding:12px;border-radius:11px;border:1px solid var(--line);background:var(--card);font-size:14px;font-weight:600;color:var(--ink-soft)}
+.donetoggle.on{background:var(--green);border-color:var(--green);color:#fff}
 .sline.manual .item::after{content:"料件";font-size:10px;font-weight:600;color:var(--teal);background:var(--teal-soft);padding:2px 6px;border-radius:6px;margin-left:8px;vertical-align:middle}
 .addrow{width:100%;text-align:center;padding:11px;border:1px dashed var(--line);border-radius:12px;color:var(--ink-soft);font-size:13px;font-weight:500;margin-top:2px;margin-bottom:4px}
 .addrow:active{background:var(--card-2)}
@@ -263,7 +271,7 @@ function seed(){
   ]};
 }
 function o(status,customer,name,qty,prod,ship,logi,note,ploc,route){
-  return {id:uid('o'),status,customer,name,qty,prod,ship,logi,note,ploc:ploc||'',route:route||''};
+  return {id:uid('o'),status,customer,name,qty,prod,ship,logi,note,ploc:ploc||'',route:route||'',done:false};
 }
 
 /* ---------- 啟動：連後端優先，失敗或未設定則本機 ---------- */
@@ -354,7 +362,7 @@ function buildShipping(){
     const item=disp(od.name), route=od.route||'';
     const key=od.ship+'|'+od.customer+'|'+item;
     const dt=S.sdet[key]||{};
-    (byDate[od.ship]=byDate[od.ship]||[]).push({key,customer:od.customer,item,qty:od.qty,route,
+    (byDate[od.ship]=byDate[od.ship]||[]).push({key,oid:od.id,done:!!od.done,customer:od.customer,item,qty:od.qty,route,
       loc:dt.loc!==undefined?dt.loc:((S.items[od.name]&&S.items[od.name].loc)||''),
       logi:dt.logi!==undefined?dt.logi:(od.logi||''),manual:false});
   });
@@ -389,8 +397,12 @@ function go(tab){
 /* ----- 訂單 ----- */
 let FILTER='全部';
 function renderOrders(){
-  const list = FILTER==='全部'?S.orders:S.orders.filter(o=>o.status===FILTER);
-  const seg=`<div class="seg">${['全部','待處理','已排程','有庫存'].map(f=>`<button class="${f===FILTER?'on':''}" onclick="setFilter('${f}')">${f}</button>`).join('')}</div>`;
+  const list = S.orders.filter(o=>{
+    if(FILTER==='全部') return true;
+    if(FILTER==='已完成') return o.done;
+    return o.status===FILTER && !o.done;
+  });
+  const seg=`<div class="seg">${['全部','待處理','已排程','有庫存','已完成'].map(f=>`<button class="${f===FILTER?'on':''}" onclick="setFilter('${f}')">${f}</button>`).join('')}</div>`;
   let html=seg;
   if(!list.length){ html+=`<div class="empty"><div class="big">還沒有訂單</div><div class="sm">按右下角「新增訂單」開始。<br>填好生產日與送貨日，生產和送貨頁會自動排。</div></div>`; }
   else { html+=list.map(cardOrder).join(''); }
@@ -402,11 +414,11 @@ function cardOrder(o){
   const rtTag  = (isDate(o.ship)&&o.route) ? `<span class="tag rt">${esc(routeArrow(o.route))}</span>` : '';
   const pr=isDate(o.prod)?`<b>${md(o.prod)}</b>${locTag}`:`<span class="none">—</span>`;
   const sh=isDate(o.ship)?`<b>${md(o.ship)}</b>${rtTag}`:`<span class="none">—</span>`;
-  return `<div class="order" onclick="openOrder('${o.id}')"><div class="body">
+  return `<div class="order ${o.done?'done':''}" onclick="openOrder('${o.id}')"><div class="body">
     <div class="line1"><span class="cust">${esc(o.customer)}</span><span class="name">${esc(o.name)}</span><span class="qty num">${qtyShow(o.qty)}<small>份</small></span></div>
     <div class="dates"><span>生產 ${pr}</span><span>送貨 ${sh}</span></div>
     ${o.note?`<div class="note">${esc(o.note)}</div>`:''}
-    </div><span class="chip st-${o.status}">${o.status}</span></div>`;
+    </div>${o.done?`<span class="chip done">✓ 已完成</span>`:`<span class="chip st-${o.status}">${o.status}</span>`}</div>`;
 }
 
 /* ----- 生產 ----- */
@@ -462,7 +474,8 @@ function renderShip(){
   $('scroll').innerHTML=html;
 }
 function sline(l){
-  return `<div class="sline ${l.manual?'manual':''}"><div class="top" onclick="toggle(this)">
+  return `<div class="sline ${l.manual?'manual':''} ${(!l.manual&&l.done)?'done':''}"><div class="top" onclick="toggle(this)">
+    ${!l.manual?`<button class="check ${l.done?'on':''}" onclick="event.stopPropagation();toggleDone('${l.oid}')">✓</button>`:''}
     <span class="item">${esc(l.item)}</span><span class="q num">${qtyShow(l.qty)}${(typeof l.qty==='number')?'<small>份</small>':''}</span></div>
     <div class="sub">${l.customer?`<span>客戶 <b>${esc(l.customer)}</b></span>`:''}<span>庫位 <b>${esc(l.loc)||'—'}</b></span><span>物流 <b>${esc(l.logi)||'—'}</b></span></div>
     <div class="detail">
@@ -471,6 +484,10 @@ function sline(l){
       ${l.manual?`<div class="row"><input type="text" value="${esc(l.item)}" placeholder="品項" onchange="setMat('${l.mdate}','${l.matId}','item',this.value)"><input type="text" value="${esc(l.qty)}" placeholder="數量" onchange="setMat('${l.mdate}','${l.matId}','qty',this.value)"></div>
       <div class="row"><button class="delbtn" onclick="delMaterial('${l.mdate}','${l.matId}')">刪除這列料件</button></div>`:''}
     </div></div>`;
+}
+function toggleDone(oid){
+  const od=S.orders.find(o=>o.id===oid); if(!od) return;
+  od.done=!od.done; commit('saveOrder',{order:od}); renderShip(); toast(od.done?'已標示完成':'已取消完成');
 }
 function setShip(key,f,val){ S.sdet[key]=S.sdet[key]||{}; S.sdet[key][f]=val; commit('setDetail',{kind:'sdet',key,value:S.sdet[key]}); toast('已更新'); }
 function setMat(date,id,f,val){
@@ -494,7 +511,7 @@ function emptyGen(label){ return `<div class="empty"><div class="big">目前沒�
    ========================================================================= */
 let EDIT=null;
 function openOrder(id){
-  EDIT = id ? Object.assign({},S.orders.find(o=>o.id===id)) : {id:null,status:'待處理',customer:'',name:'',qty:'',prod:'',ship:'',logi:'',note:'',ploc:'',route:''};
+  EDIT = id ? Object.assign({},S.orders.find(o=>o.id===id)) : {id:null,status:'待處理',customer:'',name:'',qty:'',prod:'',ship:'',logi:'',note:'',ploc:'',route:'',done:false};
   const custs=[...new Set(S.orders.map(o=>o.customer).filter(Boolean))];
   const names=Object.keys(S.items);
   const e=EDIT;
@@ -510,7 +527,9 @@ function openOrder(id){
       <div class="field"><label>送貨物流</label>
         <input id="fLogi" list="dl-logi" value="${esc(e.logi)}" placeholder="冷凍車 / 來回冷凍車 / 711…">
         <datalist id="dl-logi"><option value="冷凍車"><option value="來回冷凍車"><option value="常溫"></datalist></div>
-      <div class="hintline">生產日空白＝不進生產；送貨日空白＝不出貨。</div>`
+      <div class="hintline">生產日空白＝不進生產；送貨日空白＝不出貨。</div>
+      <div class="field" style="margin-top:12px"><label>出貨狀態</label>
+        <button type="button" class="donetoggle ${e.done?'on':''}" onclick="EDIT.done=!EDIT.done;this.classList.toggle('on');this.textContent=EDIT.done?'✓ 已完成出貨':'標示為已完成出貨'">${e.done?'✓ 已完成出貨':'標示為已完成出貨'}</button></div>`
     : `<div class="hintline" style="margin-top:2px">送貨日與生產排程由排程人員之後在「訂單」點開這筆編輯，或直接在 Google Sheet 填。</div>`;
   $('sheetContent').innerHTML=`
     <div class="shead"><b>${id?'編輯訂單':'新增訂單'}</b>
@@ -536,10 +555,10 @@ function saveOrder(){
   const g=id=>{ const el=$(id); return el?String(el.value).trim():''; };
   const qraw=g('fQty'); const qty=qraw===''?null:(isNaN(+qraw)?qraw:+qraw);
   const rec={status:EDIT.status,customer:g('fCust'),name:g('fName'),qty,note:g('fNote')};
-  if(EDIT.id){   // 編輯：一併更新排程欄位
-    rec.prod=g('fProd'); rec.ship=g('fShip'); rec.logi=g('fLogi'); rec.ploc=g('fPloc'); rec.route=g('fRoute');
+  if(EDIT.id){   // 編輯：一併更新排程欄位與完成狀態
+    rec.prod=g('fProd'); rec.ship=g('fShip'); rec.logi=g('fLogi'); rec.ploc=g('fPloc'); rec.route=g('fRoute'); rec.done=!!EDIT.done;
   } else {       // 新增：排程欄位留空，之後再排
-    rec.prod=''; rec.ship=''; rec.logi=''; rec.ploc=''; rec.route='';
+    rec.prod=''; rec.ship=''; rec.logi=''; rec.ploc=''; rec.route=''; rec.done=false;
   }
   if(!rec.name){ toast('請填品名'); return; }
   let order;
