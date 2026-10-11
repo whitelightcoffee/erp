@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 每次改版可換 data-build（裝了 sw.js 後其實不改也會自動更新；此值供版本標籤／備援用） -->
-<html lang="zh-Hant" data-build="2025-08-25-1">
+<html lang="zh-Hant" data-build="2026-10-11-1">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -64,6 +64,10 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .order .dates{display:flex;gap:14px;margin-top:8px;font-size:12.5px;color:var(--ink-soft);flex-wrap:wrap;align-items:center}
 .order .dates b{color:var(--ink);font-weight:600}
 .order .dates .none{color:#B9BEB2}
+.order .created{margin-top:6px;font-size:11.5px;color:var(--ink-soft);letter-spacing:.02em}
+.order .created b{font-family:var(--num);font-weight:500;color:var(--ink-soft)}
+.createdline{font-size:12.5px;color:var(--ink-soft);margin:-4px 0 14px;padding:9px 12px;background:var(--card-2);border-radius:10px}
+.createdline b{font-family:var(--num);color:var(--ink);font-weight:600}
 .tag{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:6px;margin-left:5px;vertical-align:middle;letter-spacing:.02em}
 .tag.loc{background:var(--green-soft);color:var(--green)}
 .tag.rt{background:var(--teal-soft);color:var(--teal)}
@@ -309,6 +313,23 @@ const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(v||'');
 function d2(s){ const [y,m,dd]=s.split('-').map(Number); return new Date(y,m-1,dd); }
 function md(s){ const d=d2(s); return (d.getMonth()+1)+'/'+d.getDate(); }
 function wk(s){ return WK[d2(s).getDay()]; }
+/* 下單時間：產生台灣時間字串；讀回時同時吃 ISO（Sheet 存成日期）與「yyyy-MM-dd HH:mm」「yyyy/MM/dd HH:mm:ss」 */
+function pad2(n){ return String(n).padStart(2,'0'); }
+function nowStamp(){ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+' '+pad2(d.getHours())+':'+pad2(d.getMinutes()); }
+function parseStamp(v){
+  if(!v) return null;
+  if(v instanceof Date) return isNaN(v)?null:v;
+  const s=String(v).trim();
+  const m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0));
+  const d=new Date(s); return isNaN(d)?null:d;
+}
+function fmtStamp(v,full){
+  const d=parseStamp(v); if(!d) return '';
+  const thisYear=d.getFullYear()===new Date().getFullYear();
+  const date=(full||!thisYear?d.getFullYear()+'/':'')+(d.getMonth()+1)+'/'+d.getDate();
+  return date+' '+pad2(d.getHours())+':'+pad2(d.getMinutes());
+}
 function qtyShow(q){ return (q===null||q===undefined||q==='')?'？':q; }
 function disp(name){ return (S.items[name]&&S.items[name].display)||name; }
 function dept(name){ return (S.items[name]&&S.items[name].dept)|| (/焙|豆|烘/.test(name)?'烘焙部':'廚房'); }
@@ -419,6 +440,7 @@ function cardOrder(o){
     <div class="line1"><span class="cust">${esc(o.customer)}</span><span class="name">${esc(o.name)}</span><span class="qty num">${qtyShow(o.qty)}<small>份</small></span></div>
     <div class="dates"><span>生產 ${pr}</span><span>送貨 ${sh}</span></div>
     ${o.note?`<div class="note">${esc(o.note)}</div>`:''}
+    ${fmtStamp(o.created)?`<div class="created">下單 <b>${esc(fmtStamp(o.created))}</b></div>`:''}
     </div>${o.done?`<span class="chip done">✓ 已完成</span>`:`<span class="chip st-${o.status}">${o.status}</span>`}</div>`;
 }
 
@@ -536,6 +558,7 @@ function openOrder(id){
     <div class="shead"><b>${id?'編輯訂單':'新增訂單'}</b>
       ${id?`<button class="del" onclick="delOrder('${id}')">刪除</button>`:`<button class="del" style="color:var(--ink-soft)" onclick="closeSheet()">取消</button>`}</div>
     <div class="sbody">
+      ${(id&&fmtStamp(e.created))?`<div class="createdline">下單時間 <b>${esc(fmtStamp(e.created,true))}</b></div>`:''}
       <div class="field"><label>狀態</label><div class="statuspick" id="fStatus">
         ${['待處理','已排程','有庫存'].map(s=>`<button class="s-${s} ${e.status===s?'on':''}" onclick="pickStatus('${s}')">${s}</button>`).join('')}</div></div>
       <div class="field"><label>客戶</label>
@@ -564,7 +587,7 @@ function saveOrder(){
   if(!rec.name){ toast('請填品名'); return; }
   let order;
   if(EDIT.id){ order=S.orders.find(o=>o.id===EDIT.id); Object.assign(order,rec); }
-  else { order=Object.assign({id:uid('o')},rec); S.orders.unshift(order); }
+  else { order=Object.assign({id:uid('o'),created:nowStamp()},rec); S.orders.unshift(order); }
   commit('saveOrder',{order}); closeSheet(); toast(EDIT.id?'已儲存':'已新增訂單'); go('orders');
 }
 function delOrder(id){ S.orders=S.orders.filter(o=>o.id!==id); commit('deleteOrder',{id}); closeSheet(); toast('已刪除'); renderOrders(); }
