@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 每次改版可換 data-build（裝了 sw.js 後其實不改也會自動更新；此值供版本標籤／備援用） -->
-<html lang="zh-Hant" data-build="2026-10-11-2">
+<html lang="zh-Hant" data-build="2026-11-22-1">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -418,8 +418,18 @@ function go(tab){
 
 /* ----- 訂單 ----- */
 let FILTER='待處理';   // 進來先看待處理
+/* 最新的訂單排最上面：依「下單時間」由新到舊；沒有下單時間的舊單排在後面，維持原順序 */
+function sortedOrders(){
+  return S.orders.map((o,i)=>({o,i,t:(parseStamp(o.created)||{getTime:()=>NaN}).getTime()}))
+    .sort((a,b)=>{
+      const ha=!isNaN(a.t), hb=!isNaN(b.t);
+      if(ha&&hb&&a.t!==b.t) return b.t-a.t;
+      if(ha!==hb) return ha?-1:1;
+      return a.i-b.i;
+    }).map(x=>x.o);
+}
 function renderOrders(){
-  const list = S.orders.filter(o=>{
+  const list = sortedOrders().filter(o=>{
     if(FILTER==='全部') return true;
     if(FILTER==='已完成') return o.done;
     return o.status===FILTER && !o.done;
