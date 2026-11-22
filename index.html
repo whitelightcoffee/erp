@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 每次改版可換 data-build（裝了 sw.js 後其實不改也會自動更新；此值供版本標籤／備援用） -->
-<html lang="zh-Hant" data-build="2026-11-22-1">
+<html lang="zh-Hant" data-build="2026-11-22-2">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -78,6 +78,21 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .chip.st-待處理{background:var(--pending-soft);color:var(--pending)}
 .chip.done{background:var(--green-soft);color:var(--green)}
 .order.done{opacity:.5}
+/* 批次選取 */
+.order .pick{width:24px;height:24px;border-radius:7px;border:1.6px solid var(--line);display:grid;place-items:center;font-size:13px;line-height:1;color:transparent;flex-shrink:0;background:var(--card);margin-top:2px}
+.order.picked{box-shadow:0 0 0 2px var(--green),var(--shadow)}
+.order.picked .pick{background:var(--green);border-color:var(--green);color:#fff}
+.tools{display:flex;justify-content:space-between;align-items:center;margin:-4px 2px 10px;font-size:13px;color:var(--ink-soft)}
+.tools b{color:var(--ink)}
+.tools button{font-size:13.5px;font-weight:600;color:var(--green);padding:6px 4px;margin-left:10px}
+.batchbar{position:absolute;left:14px;right:14px;bottom:calc(80px + var(--safe-b));z-index:25;display:none;gap:8px}
+.batchbar.show{display:flex}
+.batchbar button{height:52px;border-radius:14px;font-size:15.5px;font-weight:600;box-shadow:var(--shadow-lg)}
+.batchbar .go{flex:1;background:var(--green);color:#fff}
+.batchbar .go:disabled{opacity:.45}
+.batchbar .go.undo{background:var(--amber)}
+.batchbar .cancel{flex:0 0 84px;background:var(--card);color:var(--ink-soft)}
+.scroll.batching{padding-bottom:calc(160px + var(--safe-b))}
 .day{margin-bottom:22px}
 .dayhead{display:flex;align-items:center;gap:12px;margin-bottom:10px;padding:0 2px}
 .badge{min-width:56px;height:56px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;flex-shrink:0;line-height:1}
@@ -180,6 +195,7 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
   <button class="fab" id="fab" onclick="openOrder()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>新增訂單
   </button>
+  <div class="batchbar" id="batchbar"></div>
   <div class="tabbar">
     <button class="tab on" data-tab="orders" onclick="go('orders')">
       <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
@@ -409,11 +425,12 @@ function buildShipping(){
 const $=id=>document.getElementById(id);
 function render(){ ({orders:renderOrders,prod:renderProd,ship:renderShip}[TAB])(); }
 function go(tab){
-  TAB=tab;
+  TAB=tab; SEL=null;
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
   $('fab').style.display = tab==='orders'?'flex':'none';
   $('scroll').scrollTop=0;
   render();
+  updateBatchBar();
 }
 
 /* ----- 訂單 ----- */
@@ -434,8 +451,17 @@ function renderOrders(){
     if(FILTER==='已完成') return o.done;
     return o.status===FILTER && !o.done;
   });
+  VISIBLE=list.map(o=>o.id);
   const seg=`<div class="seg">${['待處理','已排程','有庫存','已完成','全部'].map(f=>`<button class="${f===FILTER?'on':''}" onclick="setFilter('${f}')">${f}</button>`).join('')}</div>`;
   let html=seg;
+  if(list.length){
+    if(SEL){
+      const allSel = VISIBLE.length && VISIBLE.every(id=>SEL.has(id));
+      html+=`<div class="tools"><span>已選 <b class="num">${SEL.size}</b> 筆</span><div><button onclick="selAll()">${allSel?'全不選':'全選'}</button><button onclick="endBatch()">結束</button></div></div>`;
+    } else {
+      html+=`<div class="tools"><span><b class="num">${list.length}</b> 筆</span><button onclick="startBatch()">批次選取</button></div>`;
+    }
+  }
   if(!list.length){
     html += (FILTER==='全部' || !S.orders.length)
       ? `<div class="empty"><div class="big">還沒有訂單</div><div class="sm">按右下角「新增訂單」開始。<br>填好生產日與送貨日，生產和送貨頁會自動排。</div></div>`
@@ -443,14 +469,53 @@ function renderOrders(){
   }
   else { html+=list.map(cardOrder).join(''); }
   $('scroll').innerHTML=html;
+  updateBatchBar();
 }
-function setFilter(f){ FILTER=f; renderOrders(); }
+function setFilter(f){ FILTER=f; if(SEL) SEL=new Set(); renderOrders(); }
+
+/* ----- 批次完成出貨 ----- */
+let SEL=null;        // null = 一般模式；Set = 批次選取中
+let VISIBLE=[];      // 目前畫面上的訂單 id（給「全選」用）
+function rerenderKeepScroll(){ const st=$('scroll').scrollTop; renderOrders(); $('scroll').scrollTop=st; }
+function startBatch(){ SEL=new Set(); rerenderKeepScroll(); }
+function endBatch(){ SEL=null; rerenderKeepScroll(); }
+function pickOrder(id){ if(!SEL) return; SEL.has(id)?SEL.delete(id):SEL.add(id); rerenderKeepScroll(); }
+function selAll(){
+  if(!SEL) return;
+  const allSel = VISIBLE.length && VISIBLE.every(id=>SEL.has(id));
+  VISIBLE.forEach(id=> allSel?SEL.delete(id):SEL.add(id));
+  rerenderKeepScroll();
+}
+function updateBatchBar(){
+  const bar=$('batchbar');
+  if(!SEL || TAB!=='orders'){
+    bar.classList.remove('show'); bar.innerHTML=''; $('scroll').classList.remove('batching');
+    if(TAB==='orders') $('fab').style.display='flex';
+    return;
+  }
+  $('fab').style.display='none';
+  $('scroll').classList.add('batching');
+  const undo = FILTER==='已完成';
+  bar.innerHTML=`<button class="cancel" onclick="endBatch()">取消</button>
+    <button class="go ${undo?'undo':''}" ${SEL.size?'':'disabled'} onclick="batchDone(${!undo})">${undo?'取消完成':'標示出貨完成'}（${SEL.size}）</button>`;
+  bar.classList.add('show');
+}
+function batchDone(done){
+  if(!SEL||!SEL.size) return;
+  const ids=[...SEL];
+  ids.forEach(id=>{ const od=S.orders.find(o=>o.id===id); if(od) od.done=done; });
+  commit('bulkDone',{ids,done});
+  SEL=null; renderOrders();
+  toast(done?`已標示 ${ids.length} 筆出貨完成`:`已取消 ${ids.length} 筆完成`);
+}
 function cardOrder(o){
   const locTag = (isDate(o.prod)&&o.ploc&&o.ploc!=='新竹') ? `<span class="tag loc">${esc(o.ploc)}</span>` : '';
   const rtTag  = (isDate(o.ship)&&o.route) ? `<span class="tag rt">${esc(routeArrow(o.route))}</span>` : '';
   const pr=isDate(o.prod)?`<b>${md(o.prod)}</b>${locTag}`:`<span class="none">—</span>`;
   const sh=isDate(o.ship)?`<b>${md(o.ship)}</b>${rtTag}`:`<span class="none">—</span>`;
-  return `<div class="order ${o.done?'done':''}" onclick="openOrder('${o.id}')"><div class="body">
+  const picked = SEL && SEL.has(o.id);
+  const click  = SEL ? `pickOrder('${o.id}')` : `openOrder('${o.id}')`;
+  return `<div class="order ${o.done?'done':''} ${picked?'picked':''}" onclick="${click}">${SEL?`<span class="pick">✓</span>`:''}<div class="body">
     <div class="line1"><span class="cust">${esc(o.customer)}</span><span class="name">${esc(o.name)}</span><span class="qty num">${qtyShow(o.qty)}<small>份</small></span></div>
     <div class="dates"><span>生產 ${pr}</span><span>送貨 ${sh}</span></div>
     ${o.note?`<div class="note">${esc(o.note)}</div>`:''}
